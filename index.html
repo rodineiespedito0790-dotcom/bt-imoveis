@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#111827">
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BT Imóveis">
+
 <title>BT Imóveis</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -55,6 +62,40 @@ button,input,select{font:inherit} button{cursor:pointer}
 .setting-box label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#4b5563}
 .setting-box input{border:1px solid #d6dae0;background:#fff;padding:11px 12px;border-radius:10px;outline:none}
 
+
+.receipt-sheet{background:#fff;color:#111}
+.receipt-copy{font-family:Arial,sans-serif;border:1.5px solid #222;padding:16px 18px;min-height:132mm;display:flex;flex-direction:column;justify-content:space-between}
+.receipt-copy + .cut-line{border-top:1px dashed #777;margin:8mm 0;position:relative}
+.receipt-copy + .cut-line:before{content:"✂  cortar aqui";position:absolute;top:-9px;left:12px;background:#fff;padding:0 6px;font-size:11px;color:#666}
+.receipt-copy .receipt-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:10px}
+.receipt-logo-wrap{display:flex;align-items:center;gap:10px}
+.receipt-logo{width:46px;height:46px;border-radius:10px;background:#b68a2c;color:#111;display:grid;place-items:center;font-weight:900;font-size:17px}
+.receipt-brand{font-size:19px;font-weight:900}
+.receipt-via{font-size:11px;font-weight:800;border:1px solid #111;border-radius:999px;padding:5px 8px}
+.receipt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.receipt-field{border-bottom:1px solid #bbb;padding:7px 0;font-size:12px}
+.receipt-field.wide{grid-column:1/-1}
+.receipt-field b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;color:#444}
+.receipt-values{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.receipt-box{border:1px solid #aaa;border-radius:8px;padding:8px;font-size:12px}
+.receipt-box b{display:block;font-size:10px;text-transform:uppercase;color:#444;margin-bottom:3px}
+.receipt-total{margin-top:10px;border:2px solid #111;border-radius:8px;padding:9px;font-weight:800;font-size:13px;display:flex;justify-content:space-between}
+.receipt-signatures{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:24px}
+.receipt-sign{margin-top:0;text-align:center}
+.receipt-sign .line{border-top:1px solid #111;width:100%;max-width:none;margin:0 auto 6px}
+.receipt-footer{font-size:10px;color:#555;text-align:center;margin-top:10px}
+@media print{
+  @page{size:A4 portrait;margin:7mm}
+  body{background:#fff}
+  .receipt-sheet{width:196mm}
+  .receipt-copy{min-height:132mm;page-break-inside:avoid}
+  .receipt-copy + .cut-line{margin:6mm 0}
+}
+
+
+.receipt-logo-img{width:58px;height:58px;object-fit:contain;border-radius:50%;background:#fff}
+.whats-hint{font-size:11px;color:var(--muted)}
+
 </style>
 </head>
 <body>
@@ -75,7 +116,7 @@ button,input,select{font:inherit} button{cursor:pointer}
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand-wrap"><div class="logo">BT</div><div><div class="brand">BT Imóveis</div><div class="subtitle">Controle de aluguéis e repasses</div></div></div>
-    <div class="top-actions"><span class="sync" id="syncText">Sincronizando...</span><button class="topbtn" id="notifyBtn">Ativar avisos</button><button class="topbtn" id="logoutBtn">Sair</button></div>
+    <div class="top-actions"><span class="sync" id="syncText">Sincronizando...</span><button class="topbtn" id="installBtn">Instalar app</button><button class="topbtn" id="notifyBtn">Ativar avisos</button><button class="topbtn" id="logoutBtn">Sair</button></div>
   </div>
 </header>
 
@@ -110,8 +151,8 @@ button,input,select{font:inherit} button{cursor:pointer}
     <section class="page" id="cadastro">
       <h2 class="section-title">Cadastrar aluguel</h2>
       <form class="form-grid" id="rentForm">
-        <label>Inquilino<input name="tenant" required></label>
-        <label>Proprietário<input name="owner" required></label>
+        <label>Inquilino<input name="tenant" required></label><label>WhatsApp do inquilino<input name="tenantPhone" inputmode="tel" placeholder="5511999999999"></label>
+        <label>Proprietário<input name="owner" required></label><label>WhatsApp do proprietário<input name="ownerPhone" inputmode="tel" placeholder="5511999999999"></label>
         <label class="wide">Endereço do imóvel<input name="address" required></label>
         <label>Valor do aluguel (R$)<input name="rent" type="number" step="0.01" min="0" required></label>
         <label>Comissão BT Imóveis (R$)<input name="commission" type="number" step="0.01" min="0" value="0"></label>
@@ -179,8 +220,8 @@ button,input,select{font:inherit} button{cursor:pointer}
 
 <div class="modal" id="editModal"><div class="dialog-card"><h2>Editar aluguel</h2><form id="editForm" class="dialog-grid">
 <input type="hidden" name="id">
-<label>Inquilino<input name="tenant" required></label>
-<label>Proprietário<input name="owner" required></label>
+<label>Inquilino<input name="tenant" required></label><label>WhatsApp do inquilino<input name="tenantPhone" inputmode="tel" placeholder="5511999999999"></label>
+<label>Proprietário<input name="owner" required></label><label>WhatsApp do proprietário<input name="ownerPhone" inputmode="tel" placeholder="5511999999999"></label>
 <label>Endereço do imóvel<input name="address" required></label>
 <label>Valor do aluguel (R$)<input name="rent" type="number" step="0.01" min="0" required></label>
 <label>Comissão BT Imóveis (R$)<input name="commission" type="number" step="0.01" min="0"></label>
@@ -250,8 +291,8 @@ async function loadAll(){
   syncText.textContent='Sincronizando...';
   const {data,error}=await sb.from('alugueis').select(`
     id,valor_aluguel,comissao,dia_vencimento,dia_repasse,forma_pagamento_padrao,multa_percentual,ativo,created_at,
-    proprietarios(id,nome),
-    inquilinos(id,nome),
+    proprietarios(id,nome,telefone),
+    inquilinos(id,nome,telefone),
     imoveis(id,endereco),
     pagamentos(id,competencia,vencimento,data_pagamento,forma_pagamento,valor_previsto,valor_recebido,multa_juros,status,
       repasses(id,data_prevista,data_repasse,valor_bruto,comissao,valor_liquido,forma_repasse,status)
@@ -260,7 +301,7 @@ async function loadAll(){
   if(error){syncText.textContent='Erro ao sincronizar';console.error(error);return}
   rents=(data||[]).map(r=>{
     const current=(r.pagamentos||[]).find(p=>String(p.competencia).slice(0,7)===monthStart().slice(0,7))||null;
-    return {id:r.id,tenant:r.inquilinos?.nome||'',owner:r.proprietarios?.nome||'',ownerId:r.proprietarios?.id,address:r.imoveis?.endereco||'',rent:Number(r.valor_aluguel||0),commission:Number(r.comissao||0),dueDay:Number(r.dia_vencimento),ownerDueDay:r.dia_repasse,paymentMethod:r.forma_pagamento_padrao||'Pix',lateFeePct:Number(r.multa_percentual||0),payment:current,repasse:current?.repasses?.[0]||null};
+    return {id:r.id,tenant:r.inquilinos?.nome||'',tenantPhone:r.inquilinos?.telefone||'',owner:r.proprietarios?.nome||'',ownerPhone:r.proprietarios?.telefone||'',ownerId:r.proprietarios?.id,address:r.imoveis?.endereco||'',rent:Number(r.valor_aluguel||0),commission:Number(r.comissao||0),dueDay:Number(r.dia_vencimento),ownerDueDay:r.dia_repasse,paymentMethod:r.forma_pagamento_padrao||'Pix',lateFeePct:Number(r.multa_percentual||0),payment:current,repasse:current?.repasses?.[0]||null};
   });
   render(); syncText.textContent='Sincronizado';
 }
@@ -403,18 +444,25 @@ function render(){
   if(!list.length){rentTable.innerHTML='<tr><td colspan="8" class="empty">Nenhum aluguel encontrado.</td></tr>';mobileList.innerHTML='<div class="empty">Nenhum aluguel encontrado.</div>'}
   list.forEach(r=>{
     const s=statusOf(r);
-    rentTable.insertAdjacentHTML('beforeend',`<tr><td><b>${esc(r.tenant)}</b><br><span class="small">${esc(r.owner)}</span></td><td>${esc(r.address)}</td><td>Dia ${r.dueDay}</td><td>${fmt(r.rent)}</td><td><span class="status ${s}">${statusLabel(s)}</span></td><td>${r.payment?.data_pagamento?esc(r.payment.forma_pagamento||'')+'<br><span class="small">'+esc(r.payment.data_pagamento)+'</span>':'—'}</td><td>${r.repasse?.status==='repassado'?'Pago '+esc(r.repasse.data_repasse||''):(r.payment?'Pendente':'—')}</td><td><div class="actions"><button class="btn primary" onclick="openPayment('${r.id}')">Pagamento</button><button class="btn light" onclick="openEdit('${r.id}')">Editar</button>${r.payment?`<button class="btn light" onclick="showReceipt('${r.id}')">Recibo</button>${r.repasse?.status!=='repassado'?`<button class="btn gold" onclick="markRepasse('${r.id}')">Marcar repasse</button>`:''}`:''}<button class="btn danger" onclick="archiveRent('${r.id}')">Arquivar</button></div></td></tr>`);
-    mobileList.insertAdjacentHTML('beforeend',`<div class="rent-mobile"><div class="top"><div><h3>${esc(r.tenant)}</h3><p>${esc(r.address)}</p></div><span class="status ${s}">${statusLabel(s)}</span></div><div class="grid"><div><b>Aluguel</b><br>${fmt(r.rent)}</div><div><b>Vencimento</b><br>Dia ${r.dueDay}</div><div><b>Proprietário</b><br>${esc(r.owner)}</div><div><b>Forma</b><br>${esc(r.paymentMethod)}</div></div><div class="actions"><button class="btn primary" onclick="openPayment('${r.id}')">Pagamento</button><button class="btn light" onclick="openEdit('${r.id}')">Editar</button>${r.payment?`<button class="btn light" onclick="showReceipt('${r.id}')">Recibo</button>${r.repasse?.status!=='repassado'?`<button class="btn gold" onclick="markRepasse('${r.id}')">Marcar repasse</button>`:''}`:''}<button class="btn danger" onclick="archiveRent('${r.id}')">Arquivar</button></div></div>`);
+    rentTable.insertAdjacentHTML('beforeend',`<tr><td><b>${esc(r.tenant)}</b><br><span class="small">${esc(r.owner)}</span></td><td>${esc(r.address)}</td><td>Dia ${r.dueDay}</td><td>${fmt(r.rent)}</td><td><span class="status ${s}">${statusLabel(s)}</span></td><td>${r.payment?.data_pagamento?esc(r.payment.forma_pagamento||'')+'<br><span class="small">'+esc(r.payment.data_pagamento)+'</span>':'—'}</td><td>${r.repasse?.status==='repassado'?'Pago '+esc(r.repasse.data_repasse||''):(r.payment?'Pendente':'—')}</td><td><div class="actions"><button class="btn primary" onclick="openPayment('${r.id}')">Pagamento</button><button class="btn light" onclick="openEdit('${r.id}')">Editar</button><button class="btn light" onclick="whatsTenant('${r.id}')">WhatsApp inquilino</button><button class="btn light" onclick="whatsOwner('${r.id}')">WhatsApp proprietário</button>${r.payment?`<button class="btn light" onclick="showReceipt('${r.id}')">Recibo</button>${r.repasse?.status!=='repassado'?`<button class="btn gold" onclick="markRepasse('${r.id}')">Marcar repasse</button>`:''}`:''}<button class="btn danger" onclick="archiveRent('${r.id}')">Arquivar</button></div></td></tr>`);
+    mobileList.insertAdjacentHTML('beforeend',`<div class="rent-mobile"><div class="top"><div><h3>${esc(r.tenant)}</h3><p>${esc(r.address)}</p></div><span class="status ${s}">${statusLabel(s)}</span></div><div class="grid"><div><b>Aluguel</b><br>${fmt(r.rent)}</div><div><b>Vencimento</b><br>Dia ${r.dueDay}</div><div><b>Proprietário</b><br>${esc(r.owner)}</div><div><b>Forma</b><br>${esc(r.paymentMethod)}</div></div><div class="actions"><button class="btn primary" onclick="openPayment('${r.id}')">Pagamento</button><button class="btn light" onclick="openEdit('${r.id}')">Editar</button><button class="btn light" onclick="whatsTenant('${r.id}')">WhatsApp inquilino</button><button class="btn light" onclick="whatsOwner('${r.id}')">WhatsApp proprietário</button>${r.payment?`<button class="btn light" onclick="showReceipt('${r.id}')">Recibo</button>${r.repasse?.status!=='repassado'?`<button class="btn gold" onclick="markRepasse('${r.id}')">Marcar repasse</button>`:''}`:''}<button class="btn danger" onclick="archiveRent('${r.id}')">Arquivar</button></div></div>`);
   });
   renderReceipts();
 }
 search.oninput=render; filter.onchange=render;
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.page).classList.add('active')});
 
-async function getOrCreate(table,name){
-  const {data:existing,error:e1}=await sb.from(table).select('id').eq('nome',name).limit(1);
-  if(e1)throw e1; if(existing?.length)return existing[0].id;
-  const {data,error}=await sb.from(table).insert({nome:name}).select('id').single(); if(error)throw error; return data.id;
+async function getOrCreate(table,name,phone=''){
+  const {data:existing,error:e1}=await sb.from(table).select('id,telefone').eq('nome',name).limit(1);
+  if(e1)throw e1;
+  if(existing?.length){
+    if(phone && phone!==existing[0].telefone){
+      await sb.from(table).update({telefone:phone}).eq('id',existing[0].id);
+    }
+    return existing[0].id;
+  }
+  const {data,error}=await sb.from(table).insert({nome:name,telefone:phone||null}).select('id').single();
+  if(error)throw error; return data.id;
 }
 
 rentForm.onsubmit=async e=>{
@@ -422,8 +470,8 @@ rentForm.onsubmit=async e=>{
   const o=Object.fromEntries(new FormData(e.target).entries());
   try{
     syncText.textContent='Salvando...';
-    const ownerId=await getOrCreate('proprietarios',o.owner.trim());
-    const tenantId=await getOrCreate('inquilinos',o.tenant.trim());
+    const ownerId=await getOrCreate('proprietarios',o.owner.trim(),o.ownerPhone?.trim()||'');
+    const tenantId=await getOrCreate('inquilinos',o.tenant.trim(),o.tenantPhone?.trim()||'');
     let {data:ims,error:imErr}=await sb.from('imoveis').select('id').eq('endereco',o.address.trim()).limit(1); if(imErr)throw imErr;
     let propertyId;
     if(ims?.length)propertyId=ims[0].id;
@@ -439,7 +487,7 @@ rentForm.onsubmit=async e=>{
 
 window.openEdit=id=>{
   const r=rents.find(x=>x.id===id),f=editForm;
-  f.id.value=id;f.tenant.value=r.tenant;f.owner.value=r.owner;f.address.value=r.address;f.rent.value=r.rent;f.commission.value=r.commission;f.dueDay.value=r.dueDay;f.ownerDueDay.value=r.ownerDueDay||'';f.paymentMethod.value=r.paymentMethod;f.lateFeePct.value=r.lateFeePct;
+  f.id.value=id;f.tenant.value=r.tenant;f.tenantPhone.value=r.tenantPhone||'';f.owner.value=r.owner;f.ownerPhone.value=r.ownerPhone||'';f.address.value=r.address;f.rent.value=r.rent;f.commission.value=r.commission;f.dueDay.value=r.dueDay;f.ownerDueDay.value=r.ownerDueDay||'';f.paymentMethod.value=r.paymentMethod;f.lateFeePct.value=r.lateFeePct;
   editModal.classList.add('show');
 };
 cancelEdit.onclick=()=>editModal.classList.remove('show');
@@ -448,8 +496,8 @@ editForm.onsubmit=async e=>{
   const o=Object.fromEntries(new FormData(e.target).entries());
   const r=rents.find(x=>x.id===o.id);
   try{
-    const ownerId=await getOrCreate('proprietarios',o.owner.trim());
-    const tenantId=await getOrCreate('inquilinos',o.tenant.trim());
+    const ownerId=await getOrCreate('proprietarios',o.owner.trim(),o.ownerPhone?.trim()||'');
+    const tenantId=await getOrCreate('inquilinos',o.tenant.trim(),o.tenantPhone?.trim()||'');
     let {data:ims}=await sb.from('imoveis').select('id').eq('endereco',o.address.trim()).limit(1);
     let propertyId;
     if(ims?.length)propertyId=ims[0].id;
@@ -509,9 +557,94 @@ window.markRepasse=async id=>{
   if(error)alert(error.message);else{await loadAll();await loadAlerts()}
 };
 
+
+function cleanPhone(v){
+  const n=String(v||'').replace(/\D/g,'');
+  if(!n)return'';
+  return n.startsWith('55')?n:'55'+n;
+}
+function openWhats(phone,msg){
+  const p=cleanPhone(phone);
+  if(!p){alert('Cadastre o número de WhatsApp primeiro.');return}
+  window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+window.whatsTenant=id=>{
+  const r=rents.find(x=>x.id===id); if(!r)return;
+  const s=statusOf(r);
+  let msg=`Olá ${r.tenant}, aqui é da BT Imóveis. Lembramos que o aluguel do imóvel ${r.address} `;
+  if(s==='atrasado') msg+=`venceu no dia ${r.dueDay} e está pendente.`;
+  else if(s==='hoje') msg+=`vence hoje, dia ${r.dueDay}.`;
+  else msg+=`vence no dia ${r.dueDay}.`;
+  msg+=` Valor: ${fmt(r.rent)}. Forma prevista: ${r.paymentMethod}.`;
+  openWhats(r.tenantPhone,msg);
+};
+window.whatsOwner=id=>{
+  const r=rents.find(x=>x.id===id); if(!r)return;
+  let msg=`Olá ${r.owner}, aqui é da BT Imóveis. `;
+  if(r.payment){
+    const liq=Number(r.payment.valor_recebido||r.rent)+Number(r.payment.multa_juros||0)-r.commission;
+    msg+=`O pagamento referente ao imóvel ${r.address} foi registrado. Valor líquido previsto para repasse: ${fmt(liq)}.`;
+  }else{
+    msg+=`O aluguel do imóvel ${r.address} ainda não consta como pago neste mês.`;
+  }
+  openWhats(r.ownerPhone,msg);
+};
+
+function receiptCopyHTML(r,via){
+  const p=r.payment||{};
+  const bruto=Number(p.valor_recebido||r.rent)+Number(p.multa_juros||0);
+  const liquido=bruto-r.commission;
+  const competencia=p.competencia ? String(p.competencia).slice(0,7).split('-').reverse().join('/') : '';
+  return `<div class="receipt-copy">
+    <div>
+      <div class="receipt-head">
+        <div class="receipt-logo-wrap">
+          <img class="receipt-logo-img" src="bt-logo.jpg" alt="BT Imóveis">
+          <div>
+            <div class="receipt-brand">BT IMÓVEIS</div>
+            <div class="small">Recibo de aluguel</div>
+          </div>
+        </div>
+        <div class="receipt-via">${esc(via)}</div>
+      </div>
+
+      <div class="receipt-grid">
+        <div class="receipt-field"><b>Inquilino</b>${esc(r.tenant)}</div>
+        <div class="receipt-field"><b>Proprietário</b>${esc(r.owner)}</div>
+        <div class="receipt-field wide"><b>Imóvel / Endereço</b>${esc(r.address)}</div>
+      </div>
+
+      <div class="receipt-values">
+        <div class="receipt-box"><b>Competência</b>${esc(competencia||'—')}</div>
+        <div class="receipt-box"><b>Vencimento</b>Dia ${r.dueDay}</div>
+        <div class="receipt-box"><b>Data do pagamento</b>${esc(p.data_pagamento||'—')}</div>
+        <div class="receipt-box"><b>Valor do aluguel</b>${fmt(r.rent)}</div>
+        <div class="receipt-box"><b>Multa / juros</b>${fmt(p.multa_juros||0)}</div>
+        <div class="receipt-box"><b>Comissão BT Imóveis</b>${fmt(r.commission)}</div>
+        <div class="receipt-box"><b>Forma de pagamento</b>${esc(p.forma_pagamento||'—')}</div>
+        <div class="receipt-box"><b>Valor recebido</b>${fmt(p.valor_recebido||r.rent)}</div>
+        <div class="receipt-box"><b>Repasse ao proprietário</b>${fmt(liquido)}</div>
+      </div>
+
+      <div class="receipt-total"><span>Total recebido</span><span>${fmt(bruto)}</span></div>
+    </div>
+
+    <div>
+      <div class="receipt-signatures">
+        <div class="receipt-sign"><div class="line"></div><div>Assinatura do proprietário</div></div>
+        <div class="receipt-sign"><div class="line"></div><div>Assinatura / BT Imóveis</div></div>
+      </div>
+      <div class="receipt-footer">BT Imóveis • Recibo referente ao pagamento de aluguel acima identificado.</div>
+    </div>
+  </div>`;
+}
+
 function receiptHTML(r){
-  const p=r.payment||{},net=Number(p.valor_recebido||r.rent)+Number(p.multa_juros||0)-r.commission;
-  return `<div class="receipt"><div class="receipt-head"><div><div class="receipt-brand">BT IMÓVEIS</div><div class="small">Recibo de aluguel</div></div><div><b>RECIBO</b></div></div><div class="receipt-row"><b>Inquilino</b><span>${esc(r.tenant)}</span></div><div class="receipt-row"><b>Proprietário</b><span>${esc(r.owner)}</span></div><div class="receipt-row"><b>Imóvel</b><span>${esc(r.address)}</span></div><div class="receipt-row"><b>Valor do aluguel</b><span>${fmt(r.rent)}</span></div><div class="receipt-row"><b>Vencimento</b><span>Dia ${r.dueDay}</span></div><div class="receipt-row"><b>Data do pagamento</b><span>${esc(p.data_pagamento||'')}</span></div><div class="receipt-row"><b>Forma de pagamento</b><span>${esc(p.forma_pagamento||'')}</span></div><div class="receipt-row"><b>Multa/juros</b><span>${fmt(p.multa_juros||0)}</span></div><div class="receipt-row"><b>Comissão BT Imóveis</b><span>${fmt(r.commission)}</span></div><div class="receipt-row"><b>Valor líquido do proprietário</b><span><b>${fmt(net)}</b></span></div><div class="receipt-sign"><div class="line"></div><div>Assinatura do proprietário</div></div></div>`;
+  return `<div class="receipt-sheet">
+    ${receiptCopyHTML(r,'VIA DO PROPRIETÁRIO')}
+    <div class="cut-line"></div>
+    ${receiptCopyHTML(r,'VIA DO INQUILINO')}
+  </div>`;
 }
 window.showReceipt=id=>{const r=rents.find(x=>x.id===id);receiptPrint.innerHTML=receiptHTML(r);receiptModal.classList.add('show')};
 closeReceipt.onclick=()=>receiptModal.classList.remove('show');
@@ -528,6 +661,26 @@ if('Notification' in window && Notification.permission==='granted'){
   notifyBtn.textContent='Avisos ativados';
   notifyBtn.classList.add('notify-ok');
 }
+
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();deferredInstallPrompt=e;});
+async function installApp(){
+  const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  if(standalone){alert('O BT Imóveis já está instalado neste aparelho.');return}
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt(); try{await deferredInstallPrompt.userChoice}catch(e){} deferredInstallPrompt=null; return;
+  }
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+    alert('No iPhone: abra no Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.');
+  }else{
+    alert('Use o menu do navegador e escolha “Instalar app” ou “Adicionar à tela inicial”.');
+  }
+}
+if(document.getElementById('installBtn')) installBtn.onclick=installApp;
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(console.error));
+}
+
 initAuth();
 </script>
 </body>
