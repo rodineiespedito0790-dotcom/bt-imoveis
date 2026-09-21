@@ -13,6 +13,7 @@
 
 <title>BT Imóveis</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#f5f6f8; --card:#fff; --text:#17191f; --muted:#6b7280; --line:#e5e7eb;
@@ -480,7 +481,7 @@ button,input,select{font:inherit} button{cursor:pointer}
 <div class="dialog-actions"><button type="button" class="btn light" id="cancelEdit">Cancelar</button><button type="submit" class="btn gold">Salvar alterações</button></div>
 </form></div></div>
 
-<div class="modal" id="receiptModal"><div class="dialog-card" style="width:min(760px,100%)"><div id="receiptPrint"></div><div class="dialog-actions no-print"><button class="btn light" id="closeReceipt">Fechar</button><button class="btn gold" id="printReceipt">Imprimir</button></div></div></div>
+<div class="modal" id="receiptModal"><div class="dialog-card" style="width:min(760px,100%)"><div id="receiptPrint"></div><div class="dialog-actions no-print" style="flex-wrap:wrap"><button class="btn light" id="closeReceipt">Fechar</button><button class="btn light" id="shareOwnerReceipt">WhatsApp proprietário</button><button class="btn light" id="shareTenantReceipt">WhatsApp inquilino</button><button class="btn gold" id="printReceipt">Imprimir</button></div></div></div>
 
 <script>
 const SUPABASE_URL='https://rxjmcnxcgyxxryffpfvv.supabase.co';
@@ -923,9 +924,38 @@ function receiptHTML(r){
     ${receiptCopyHTML(r,'VIA DO INQUILINO')}
   </div>`;
 }
-window.showReceipt=id=>{const r=rents.find(x=>x.id===id);receiptPrint.innerHTML=receiptHTML(r);receiptModal.classList.add('show')};
+let currentReceiptRent=null;
+window.showReceipt=id=>{const r=rents.find(x=>x.id===id);currentReceiptRent=r||null;receiptPrint.innerHTML=receiptHTML(r);receiptModal.classList.add('show')};
 closeReceipt.onclick=()=>receiptModal.classList.remove('show');
 printReceipt.onclick=()=>window.print();
+
+async function shareReceiptCopy(via){
+  const r=currentReceiptRent;
+  if(!r)return;
+  const copies=receiptPrint.querySelectorAll('.receipt-copy');
+  const target=via==='owner'?copies[0]:copies[1];
+  if(!target)return;
+  const person=via==='owner'?r.owner:r.tenant;
+  const phone=via==='owner'?r.ownerPhone:r.tenantPhone;
+  const label=via==='owner'?'proprietario':'inquilino';
+  try{
+    const canvas=await html2canvas(target,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
+    const file=new File([blob],`recibo-${label}-${String(person||'').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}.png`,{type:'image/png'});
+    const msg=`Olá ${person}, segue o recibo de aluguel da BT Imóveis referente ao imóvel ${r.address}.`;
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({title:'Recibo BT Imóveis',text:msg,files:[file]});
+      return;
+    }
+    openWhats(phone,msg+' Abra o sistema para visualizar o recibo.');
+  }catch(e){
+    if(e && e.name==='AbortError')return;
+    const msg=`Olá ${person}, segue o recibo de aluguel da BT Imóveis referente ao imóvel ${r.address}.`;
+    openWhats(phone,msg);
+  }
+}
+shareOwnerReceipt.onclick=()=>shareReceiptCopy('owner');
+shareTenantReceipt.onclick=()=>shareReceiptCopy('tenant');
 
 function renderReceipts(){
   receiptList.innerHTML='';
