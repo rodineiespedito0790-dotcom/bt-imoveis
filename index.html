@@ -435,8 +435,9 @@ button,input,select{font:inherit} button{cursor:pointer}
       <h2 class="section-title">Recibos</h2>
       <div class="setting-box" style="margin-bottom:16px">
         <b>2ª via de recibo</b>
-        <p class="small">Escolha o inquilino e o mês pago para abrir e imprimir uma segunda via.</p>
+        <p class="small">Pesquise o inquilino e escolha o mês pago para abrir e imprimir uma segunda via.</p>
         <div class="form-grid" style="margin-top:10px">
+          <label class="wide">🔎 Buscar inquilino, proprietário ou endereço<input id="receiptTenantSearch" type="search" placeholder="Digite o nome do inquilino..." autocomplete="off"></label>
           <label>Inquilino<select id="receiptTenantSelect"><option value="">Selecione o inquilino</option></select></label>
           <label>Mês de referência<select id="receiptMonthSelect"><option value="">Selecione o mês</option></select></label>
           <div style="align-self:end"><button class="btn gold" id="searchReceiptBtn" type="button">Buscar 2ª via</button></div>
@@ -467,6 +468,7 @@ button,input,select{font:inherit} button{cursor:pointer}
                 <label>Nacionalidade do locatário<input id="cTenantNationality" value="brasileiro(a)"></label>
                 <label>Estado civil do locatário<input id="cTenantCivil"></label>
                 <label>Profissão do locatário<input id="cTenantJob"></label>
+                <label>Valor do aluguel (R$)<input id="cRent" type="number" step="0.01" min="0"></label>
                 <label>Início do contrato<input id="cStart" type="date"></label>
                 <label>Prazo (meses)<input id="cMonths" type="number" min="1" value="30"></label>
                 <label>Fim do contrato<input id="cEnd" type="date"></label>
@@ -484,6 +486,7 @@ button,input,select{font:inherit} button{cursor:pointer}
               <div class="contract-actions">
                 <button class="btn gold" id="saveContractBtn" type="button">Salvar dados</button>
                 <button class="btn primary" id="generateContractBtn" type="button">Gerar contrato</button>
+                <button class="btn danger" id="deleteContractBtn" type="button">Excluir contrato</button>
               </div>
             </div>
 
@@ -1276,24 +1279,41 @@ function populateReceiptMonths(){
   if(!receiptMonthSelect)return;
   receiptMonthSelect.innerHTML='<option value="">Selecione o mês</option>';
   const pays=[...(r?.payments||[])].sort((a,b)=>String(b.competencia||'').localeCompare(String(a.competencia||'')));
+  if(r && !pays.length){
+    receiptMonthSelect.innerHTML='<option value="">Nenhum recibo salvo para este inquilino</option>';
+    return;
+  }
   pays.forEach(p=>receiptMonthSelect.insertAdjacentHTML('beforeend',`<option value="${esc(String(p.id))}">${esc(paymentMonthLabel(p))}${p.data_pagamento?` — pago em ${esc(formatDateBR(p.data_pagamento))}`:''}</option>`));
+}
+function receiptSearchText(r){
+  return `${r.tenant||''} ${r.owner||''} ${r.address||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function populateReceiptTenants(filter=''){
+  if(!receiptTenantSelect)return;
+  const keep=receiptTenantSelect.value;
+  const q=String(filter||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  receiptTenantSelect.innerHTML='<option value="">Selecione o inquilino</option>';
+  [...allRents]
+    .filter(r=>!q || receiptSearchText(r).includes(q))
+    .sort((a,b)=>a.tenant.localeCompare(b.tenant,'pt-BR'))
+    .forEach(r=>receiptTenantSelect.insertAdjacentHTML('beforeend',`<option value="${esc(r.id)}">${esc(r.tenant)} — ${esc(r.address)}${r.active?'':' — ENCERRADO'}</option>`));
+  if([...receiptTenantSelect.options].some(o=>o.value===keep))receiptTenantSelect.value=keep;
+  else receiptTenantSelect.value='';
+  populateReceiptMonths();
 }
 function renderReceipts(){
   receiptList.innerHTML='';
   if(receiptTenantSelect){
-    const keep=receiptTenantSelect.value;
-    receiptTenantSelect.innerHTML='<option value="">Selecione o inquilino</option>';
-    [...allRents].sort((a,b)=>a.tenant.localeCompare(b.tenant,'pt-BR')).forEach(r=>{
-      if((r.payments||[]).length)receiptTenantSelect.insertAdjacentHTML('beforeend',`<option value="${esc(r.id)}">${esc(r.tenant)} — ${esc(r.address)}${r.active?'':' — ENCERRADO'}</option>`);
-    });
-    if([...receiptTenantSelect.options].some(o=>o.value===keep))receiptTenantSelect.value=keep;
-    populateReceiptMonths();
+    populateReceiptTenants(receiptTenantSearch?.value||'');
   }
   const history=[];
   allRents.forEach(r=>(r.payments||[]).forEach(p=>history.push({r,p})));
   history.sort((a,b)=>String(b.p.competencia||'').localeCompare(String(a.p.competencia||'')));
   if(!history.length){receiptList.innerHTML='<div class="empty">Nenhum recibo gerado ainda.</div>';return}
   history.forEach(({r,p})=>receiptList.insertAdjacentHTML('beforeend',`<div class="receipt-item"><div><b>${esc(r.tenant)}${r.active?'':' — Locação encerrada'}</b><div class="small">${esc(r.address)} • ${esc(paymentMonthLabel(p))} • ${esc(formatDateBR(p.data_pagamento||''))}</div></div><button class="btn light" onclick="showReceiptHistory('${r.id}','${p.id}')">Abrir recibo</button></div>`));
+}
+if(typeof receiptTenantSearch!=='undefined' && receiptTenantSearch){
+  receiptTenantSearch.oninput=()=>populateReceiptTenants(receiptTenantSearch.value);
 }
 if(typeof receiptTenantSelect!=='undefined' && receiptTenantSelect){
   receiptTenantSelect.onchange=populateReceiptMonths;
@@ -1303,7 +1323,7 @@ if(typeof searchReceiptBtn!=='undefined' && searchReceiptBtn){
     const rentId=receiptTenantSelect.value;
     const paymentId=receiptMonthSelect.value;
     if(!rentId){alert('Escolha o inquilino.');return;}
-    if(!paymentId){alert('Escolha o mês do recibo.');return;}
+    if(!paymentId){alert('Este inquilino ainda não tem recibo salvo. Registre o pagamento do mês para gerar o recibo.');return;}
     showReceiptHistory(rentId,paymentId);
   };
 }
@@ -1349,6 +1369,7 @@ async function loadContractWorkspace(){
   cTenantNationality.value=r.tenantNationality||'brasileiro(a)';
   cTenantCivil.value=r.tenantCivil||'';
   cTenantJob.value=r.tenantJob||'';
+  cRent.value=Number(r.rent||0);
   cStart.value=currentContractRecord?.data_inicio||r.startDate||isoToday();
   cMonths.value=currentContractRecord?.prazo_meses||30;
   cEnd.value=currentContractRecord?.data_fim||r.endDate||addMonthsMinusDay(cStart.value,cMonths.value);
@@ -1379,10 +1400,12 @@ async function saveContractData(showAlert=true){
       sb.from('imoveis').update({descricao:cPropertyDesc.value||null}).eq('id',r.propertyId)
     ]);
     for(const x of [ownerUpd,tenantUpd,propertyUpd])if(x.error)throw x.error;
+    const valorAluguel=Number(cRent.value||0);
     const iptuAtivo=!!cIptuActive.checked;
     const iptuValor=iptuAtivo?Number(cIptuValue.value||0):0;
     const iptuParcelas=iptuAtivo?Number(cIptuInstallments.value||10):10;
     const aluguelUpd=await sb.from('alugueis').update({
+      valor_aluguel:valorAluguel,
       data_inicio:cStart.value||null,
       data_fim:cEnd.value||null,
       iptu_ativo:iptuAtivo,
@@ -1404,11 +1427,32 @@ async function saveContractData(showAlert=true){
 }
 if(typeof saveContractBtn!=='undefined')saveContractBtn.onclick=()=>saveContractData(true);
 
+async function deleteCurrentContract(){
+  const r=currentContractRent;
+  if(!r){alert('Escolha uma locação.');return;}
+  if(!currentContractRecord?.id){alert('Não há contrato salvo para excluir nesta locação.');return;}
+  const ok=confirm(`Tem certeza que deseja excluir este contrato?\n\nSerá excluído somente o contrato de ${r.tenant}. O cadastro do inquilino, proprietário, imóvel, pagamentos, recibos e documentos enviados serão mantidos.`);
+  if(!ok)return;
+  try{
+    syncText.textContent='Excluindo contrato...';
+    const {error}=await sb.from('contratos').delete().eq('id',currentContractRecord.id);
+    if(error)throw error;
+    currentContractRecord=null;
+    await loadContractWorkspace();
+    alert('Contrato excluído do sistema. Os demais dados da locação foram mantidos.');
+  }catch(err){
+    alert('Não foi possível excluir o contrato: '+err.message);
+  }finally{
+    syncText.textContent='Sincronizado';
+  }
+}
+if(typeof deleteContractBtn!=='undefined')deleteContractBtn.onclick=deleteCurrentContract;
+
 function contractDateBR(v){return formatDateBR(v||'');}
 function wordsBRL(v){return fmt(v).replace('R$ ','R$ ');}
 function contractHTML(r){
   const d={
-    owner:esc(r.owner), tenant:esc(r.tenant), address:esc(r.address), rent:fmt(r.rent), due:r.dueDay,
+    owner:esc(r.owner), tenant:esc(r.tenant), address:esc(r.address), rent:fmt(cRent.value||r.rent||0), due:r.dueDay,
     ownerRg:esc(cOwnerRg.value||'________________'),ownerCpf:esc(cOwnerCpf.value||'________________'),ownerNat:esc(cOwnerNationality.value||'brasileiro(a)'),ownerCivil:esc(cOwnerCivil.value||'________'),ownerJob:esc(cOwnerJob.value||'________'),
     tenantRg:esc(cTenantRg.value||'________________'),tenantCpf:esc(cTenantCpf.value||'________________'),tenantNat:esc(cTenantNationality.value||'brasileiro(a)'),tenantCivil:esc(cTenantCivil.value||'________'),tenantJob:esc(cTenantJob.value||'________'),
     start:contractDateBR(cStart.value),end:contractDateBR(cEnd.value),months:Number(cMonths.value||30),deposit:fmt(cDeposit.value||0),desc:esc(cPropertyDesc.value||'conforme cadastro e vistoria'),residents:esc(cResidents.value||'o(a) LOCATÁRIO(A) e pessoas por ele(a) autorizadas nos limites legais e contratuais'),
